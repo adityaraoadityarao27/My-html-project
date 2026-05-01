@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GharSevak Pro - Voice & Smart Search</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --primary: #2563eb; --whatsapp: #25d366; --danger: #ef4444; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
+        .container { max-width: 500px; margin: auto; }
+
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logo { font-size: 24px; font-weight: 800; }
+        .logo span { color: var(--primary); }
+
+        /* Search Area */
+        .search-area { position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 10; }
+        .search-box { display: flex; align-items: center; background: white; border: 2px solid #e2e8f0; padding: 10px 15px; border-radius: 12px; transition: 0.3s; }
+        .search-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .search-box input { border: none; outline: none; width: 100%; font-size: 16px; margin-left: 10px; }
+        
+        /* Voice Animation */
+        .mic-btn { cursor: pointer; color: #64748b; font-size: 18px; padding-left: 10px; border-left: 1px solid #e2e8f0; margin-left: 10px; }
+        .listening { color: var(--danger) !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+        #aiStatus { font-size: 12px; color: var(--primary); margin: 8px 0; min-height: 18px; font-weight: 600; display: none; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { background: white; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 20px; cursor: pointer; white-space: nowrap; font-size: 14px; }
+        .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Worker Card */
+        .worker-card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .worker-img { width: 55px; height: 55px; border-radius: 50%; }
+        .info { flex: 1; }
+        .tag { font-size: 10px; background: #eff6ff; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        
+        .actions { display: flex; gap: 8px; }
+        .btn-icon { width: 35px; height: 35px; border-radius: 10px; display: flex; align-items: center; justify-content: center; text-decoration: none; border: none; cursor: pointer; }
+        .call { background: #dbeafe; color: var(--primary); }
+        .wa { background: #dcfce7; color: var(--whatsapp); }
+        .del { background: #fee2e2; color: var(--danger); }
+
+        .fab { position: fixed; bottom: 20px; right: 20px; background: var(--primary); color: white; width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; font-size: 20px; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .modal-content { background: white; padding: 24px; border-radius: 20px; width: 100%; max-width: 350px; }
+        .input-group { margin-bottom: 12px; }
+        .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">GharSevak<span>.pro</span></div>
+        <div style="font-size: 12px; background: #fff; padding: 4px 12px; border-radius: 20px;">🇮🇳 Local Service</div>
+    </div>
+
+    <div class="search-area">
+        <div class="search-box">
+            <i class="fas fa-search" style="color: #94a3b8;"></i>
+            <input type="text" id="mainSearch" onkeyup="smartLogic()" placeholder="Boliye 'Nal kharab hai'...">
+            <i class="fas fa-microphone mic-btn" id="micBtn" onclick="startVoice()"></i>
+        </div>
+        <div id="aiStatus"></div>
+
+        <div class="tabs">
+            <button onclick="setTab('All')" class="tab active">Sabhi</button>
+            <button onclick="setTab('Plumber')" class="tab">🪠 Plumber</button>
+            <button onclick="setTab('Electrician')" class="tab">⚡ Electrician</button>
+            <button onclick="setTab('Painter')" class="tab">🎨 Painter</button>
+            <button onclick="setTab('Carpenter')" class="tab">🪚 Carpenter</button>
+        </div>
+    </div>
+
+    <div id="listContainer"></div>
+</div>
+
+<button class="fab" onclick="openModal()"><i class="fas fa-plus"></i></button>
+
+<div class="modal" id="workerModal">
+    <div class="modal-content">
+        <h3>Add New Worker</h3>
+        <div class="input-group"><input type="text" id="fName" placeholder="Worker Name"></div>
+        <div class="input-group">
+            <select id="fSkill">
+                <option value="Plumber">Plumber</option>
+                <option value="Electrician">Electrician</option>
+                <option value="Painter">Painter</option>
+                <option value="Carpenter">Carpenter</option>
+            </select>
+        </div>
+        <div class="input-group"><input type="number" id="fPin" placeholder="Area Pincode"></div>
+        <div class="input-group"><input type="number" id="fPhone" placeholder="Mobile Number"></div>
+        <button onclick="saveWorker()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Save Worker</button>
+        <button onclick="closeModal()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">Cancel</button>
+    </div>
+</div>
+
+<script>
+    let workerDB = JSON.parse(localStorage.getItem('gs_workers')) || [];
+    let currentFilter = 'All';
+
+    // 1. Voice Recognition Logic
+    function startVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Browser not supported");
+
+        const recognition = new SpeechRecognition();
+        const micBtn = document.getElementById('micBtn');
+        const status = document.getElementById('aiStatus');
+        recognition.lang = 'hi-IN';
+
+        recognition.onstart = () => {
+            micBtn.classList.add('listening');
+            status.style.display = "block";
+            status.innerHTML = "🎤 Sun raha hoon... Boliye";
+        };
+
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript;
+            document.getElementById('mainSearch').value = text;
+            smartLogic();
+        };
+
+        recognition.onend = () => {
+            micBtn.classList.remove('listening');
+            setTimeout(() => { status.style.display = "none"; }, 3000);
+        };
+
+        recognition.start();
+    }
+
+    // 2. Smart Logic (Search + AI Keywords)
+    function smartLogic() {
+        const query = document.getElementById('mainSearch').value.toLowerCase();
+        const status = document.getElementById('aiStatus');
+        
+        let autoCat = "";
+        if(query.includes("nal") || query.includes("paani") || query.includes("tap")) autoCat = "Plumber";
+        else if(query.includes("bijli") || query.includes("current") || query.includes("light")) autoCat = "Electrician";
+        else if(query.includes("color") || query.includes("paint")) autoCat = "Painter";
+        else if(query.includes("lakdi") || query.includes("gate")) autoCat = "Carpenter";
+
+        if(autoCat) {
+            status.style.display = "block";
+            status.innerHTML = `✨ AI Suggestion: <b>${autoCat}</b> results`;
+            currentFilter = autoCat;
+            updateTabUI();
+        }
+        render();
+    }
+
+    // 3. UI Render
+    function render() {
+        const container = document.getElementById('listContainer');
+        const term = document.getElementById('mainSearch').value.toLowerCase();
+        
+        let filtered = workerDB.filter(w => {
+            const matchesTab = currentFilter === 'All' || w.skill === currentFilter;
+            const matchesSearch = w.name.toLowerCase().includes(term) || w.pin.includes(term) || w.skill.toLowerCase().includes(term);
+            return matchesTab && matchesSearch;
+        });
+
+        container.innerHTML = filtered.length ? filtered.map((w, i) => `
+            <div class="worker-card">
+                <img src="https://ui-avatars.com/api/?name=${w.name}&background=random" class="worker-img">
+                <div class="info">
+                    <h3 style="margin:0">${w.name} <span class="tag">${w.skill}</span></h3>
+                    <div style="font-size:12px; color:gray; margin-top:4px;">📍 Pin: ${w.pin} | ⭐ 4.8</div>
+                </div>
+                <div class="actions">
+                    <a href="tel:${w.phone}" class="btn-icon call"><i class="fas fa-phone-alt"></i></a>
+                    <a href="https://wa.me/91${w.phone}" class="btn-icon wa"><i class="fab fa-whatsapp"></i></a>
+                    <button onclick="removeWorker(${i})" class="btn-icon del"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('') : '<p style="text-align:center; padding:20px; color:gray;">Koi worker nahi mila.</p>';
+    }
+
+    // Tabs & Modal helpers
+    function setTab(cat) { currentFilter = cat; updateTabUI(); render(); }
+    function updateTabUI() {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.innerText.includes(currentFilter) || (currentFilter === 'All' && t.innerText === 'Sabhi')));
+    }
+    function openModal() { document.getElementById('workerModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('workerModal').style.display = 'none'; }
+
+    function saveWorker() {
+        const name = document.getElementById('fName').value;
+        const skill = document.getElementById('fSkill').value;
+        const pin = document.getElementById('fPin').value;
+        const phone = document.getElementById('fPhone').value;
+        if(name && pin && phone) {
+            workerDB.push({name, skill, pin, phone});
+            localStorage.setItem('gs_workers', JSON.stringify(workerDB));
+            closeModal(); render();
+        }
+    }
+
+    function removeWorker(i) {
+        if(confirm("Delete?")) { workerDB.splice(i, 1); localStorage.setItem('gs_workers', JSON.stringify(workerDB)); render(); }
+    }
+
+    render();
+</script>
+</body>
+</html>
