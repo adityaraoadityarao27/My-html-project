@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GharSevak Pro - Final Master Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --accent: #3b82f6; --online: #22c55e; --offline: #94a3b8;
+            --bg: #f8fafc; --glass: rgba(255, 255, 255, 0.95); --danger: #e11d48;
+        }
+
+        .dark-mode { --bg: #020617; --glass: rgba(30, 41, 59, 0.9); }
+
+        body { 
+            font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; 
+            transition: 0.3s; background-image: radial-gradient(#cbd5e1 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+        }
+
+        .container { max-width: 500px; margin: auto; }
+
+        /* --- HEADER & SEARCH --- */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .logo { font-size: 24px; font-weight: 800; color: #0f172a; }
+        .logo span { color: var(--accent); }
+        .dark-mode .logo { color: white; }
+
+        .search-bar { 
+            width: 100%; padding: 15px; border-radius: 18px; border: 1px solid #e2e8f0; 
+            background: var(--glass); backdrop-filter: blur(10px); margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); outline: none; box-sizing: border-box;
+        }
+
+        /* --- MAP & STATUS --- */
+        #map { height: 180px; border-radius: 24px; margin-bottom: 20px; border: 4px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.05); z-index: 1; }
+
+        /* --- WORKER CARDS --- */
+        .worker-card { 
+            background: var(--glass); backdrop-filter: blur(12px); border-radius: 26px; 
+            padding: 20px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.04); position: relative;
+        }
+
+        .worker-img { width: 60px; height: 60px; border-radius: 18px; object-fit: cover; border: 2px solid #fff; }
+        
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .is-online { background: var(--online); box-shadow: 0 0 8px var(--online); }
+        
+        .rate-badge { background: #f1f5f9; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; color: #475569; }
+
+        /* --- BUTTONS --- */
+        .actions { display: grid; grid-template-columns: 1fr 50px; gap: 10px; margin-top: 15px; }
+        .btn-book { 
+            background: var(--primary-gradient); color: white; padding: 14px; 
+            border-radius: 16px; border: none; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-share { background: #e2e8f0; border-radius: 16px; border: none; cursor: pointer; color: #0f172a; }
+
+        /* --- FLOATING ELEMENTS --- */
+        .sos-btn { position: fixed; bottom: 100px; right: 25px; background: var(--danger); color: white; width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: none; cursor: pointer; box-shadow: 0 8px 20px rgba(225,29,72,0.4); z-index: 99; }
+        .fab { position: fixed; bottom: 30px; right: 25px; background: var(--accent); color: white; width: 65px; height: 65px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 26px; border: none; cursor: pointer; box-shadow: 0 10px 25px rgba(59,130,246,0.3); z-index: 100; }
+
+        /* --- MODALS --- */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal-content { background: white; padding: 30px; border-radius: 30px; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
+        input, select { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 14px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">GharSevak<span>Pro</span></div>
+        <div style="display: flex; gap: 15px;">
+            <i class="fas fa-circle-half-stroke" onclick="toggleTheme()" style="cursor:pointer; font-size:20px; color:#64748b;"></i>
+            <i class="fas fa-user-shield" onclick="openAdmin()" style="cursor:pointer; font-size:20px; color:#64748b;"></i>
+        </div>
+    </div>
+
+    <input type="text" id="smartSearch" class="search-bar" placeholder="प्लंबर, पेंटर या नाम सर्च करें..." oninput="render()">
+
+    <div id="map"></div>
+    <div id="listContainer"></div>
+</div>
+
+<button class="sos-btn" onclick="triggerSOS()"><i class="fas fa-shield-alt"></i></button>
+<button class="fab" onclick="openReg()"><i class="fas fa-plus"></i></button>
+
+<div class="modal" id="regModal">
+    <div class="modal-content">
+        <h3 style="margin:0 0 10px;">👷 Join Duty</h3>
+        <input type="text" id="fName" placeholder="आपका पूरा नाम">
+        <input type="number" id="fPhone" placeholder="मोबाइल नंबर (प्राइवेट रहेगा)">
+        <select id="fSkill">
+            <option value="Plumber">Plumber (प्लंबर)</option>
+            <option value="Electrician">Electrician (बिजली वाला)</option>
+            <option value="Painter">Painter (पेंटर)</option>
+            <option value="Carpenter">Carpenter (बढ़ई)</option>
+        </select>
+        <input type="text" id="fRate" placeholder="विजिटिंग चार्ज (जैसे ₹150)">
+        
+        <button onclick="getGPS()" id="gpsBtn" style="width:100%; padding:12px; border:2px dashed var(--accent); border-radius:12px; color:var(--accent); background:none; font-weight:bold; margin:10px 0;">GPS लोकेशन सेट करें</button>
+        <input type="hidden" id="fLat"><input type="hidden" id="fLng">
+        
+        <button onclick="submitWorker()" style="width:100%; padding:15px; background:var(--accent); color:white; border:none; border-radius:15px; font-weight:bold; cursor:pointer;">ड्यूटी जॉइन करें</button>
+        <button onclick="closeModal('regModal')" style="width:100%; margin-top:10px; background:none; border:none; color:gray; cursor:pointer;">कैंसिल</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let workerDB = JSON.parse(localStorage.getItem('gs_master_db')) || [];
+    let userLoc = [25.7462, 82.6837];
+    let map, markers;
+
+    window.onload = () => { setTimeout(initMap, 500); };
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView(userLoc, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        markers = L.layerGroup().addTo(map);
+        navigator.geolocation.getCurrentPosition(p => {
+            userLoc = [p.coords.latitude, p.coords.longitude];
+            map.setView(userLoc, 13);
+            render();
+        });
+        render();
+    }
+
+    function render() {
+        const query = document.getElementById('smartSearch').value.toLowerCase();
+        const container = document.getElementById('listContainer');
+        markers.clearLayers();
+        
+        const filtered = workerDB.filter(w => w.name.toLowerCase().includes(query) || w.skill.toLowerCase().includes(query));
+
+        container.innerHTML = filtered.map(w => {
+            L.marker([w.lat, w.lng]).addTo(markers);
+            return `
+                <div class="worker-card">
+                    <div style="display:flex; gap:15px; align-items:center;">
+                        <img src="https://ui-avatars.com/api/?name=${w.name}&background=random&bold=true" class="worker-img">
+                        <div style="flex:1">
+                            <h4 style="margin:0"><span class="status-dot is-online"></span> ${w.name} ✅</h4>
+                            <div style="color:#f59e0b; font-size:12px; margin:2px 0;">★ 4.8 (Verified)</div>
+                            <div style="display:flex; gap:5px; margin-top:5px;">
+                                <span class="rate-badge">${w.skill}</span>
+                                <span class="rate-badge">₹ ${w.rate || 'Standard'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button onclick="secureBook('${w.name}', '${w.id}')" class="btn-book">
+                            <i class="fas fa-shield-check"></i> Secure Connection
+                        </button>
+                        <button onclick="shareWorker('${w.name}', '${w.skill}')" class="btn-share">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('') || `<p style="text-align:center; color:gray; padding:20px;">कोई वर्कर उपलब्ध नहीं है।</p>`;
+    }
+
+    function secureBook(name, id) {
+        if(confirm(`Security Notice: प्राइवेसी के लिए ${name} का नंबर छुपाया गया है। क्या आप हमारे हेल्पलाइन के जरिए इनसे संपर्क करना चाहते हैं?`)) {
+            window.open(`https://wa.me/91XXXXXXXXXX?text=I_need_service_from_${name}_ID_${id}`);
+        }
+    }
+
+    function shareWorker(name, skill) {
+        const text = `GharSevak Pro पर मुझे ये बेहतरीन ${skill} मिले हैं: ${name}। आप भी सुरक्षित सेवा के लिए ऐप डाउनलोड करें!`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    }
+
+    function triggerSOS() {
+        alert("EMERGENCY: आपकी लाइव लोकेशन आपके रजिस्टर्ड हेल्पलाइन और एडमिन को भेजी जा रही है। घबराएं नहीं!");
+    }
+
+    function submitWorker() {
+        const name = document.getElementById('fName').value;
+        const phone = document.getElementById('fPhone').value;
+        const lat = document.getElementById('fLat').value;
+        if(!name || phone.length < 10 || !lat) return alert("नाम, फोन और GPS लोकेशन ज़रूरी है!");
+
+        workerDB.push({
+            id: 'GS' + Math.floor(Math.random()*1000),
+            name, phone, skill: document.getElementById('fSkill').value,
+            rate: document.getElementById('fRate').value,
+            lat: parseFloat(lat), lng: parseFloat(document.getElementById('fLng').value)
+        });
+        localStorage.setItem('gs_master_db', JSON.stringify(workerDB));
+        closeModal('regModal');
+        render();
+    }
+
+    function getGPS() {
+        navigator.geolocation.getCurrentPosition(p => {
+            document.getElementById('fLat').value = p.coords.latitude;
+            document.getElementById('fLng').value = p.coords.longitude;
+            document.getElementById('gpsBtn').innerText = "✅ लोकेशन सेट है";
+        });
+    }
+
+    function toggleTheme() { document.body.classList.toggle('dark-mode'); }
+    function openReg() { document.getElementById('regModal').style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openAdmin() { if(prompt("Admin PIN:") === "1234") { if(confirm("Clear all data?")) { localStorage.clear(); location.reload(); } } }
+</script>
+</body>
+</html>
